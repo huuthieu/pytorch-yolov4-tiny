@@ -1,9 +1,11 @@
+import os
+
 import torch
 from tqdm import tqdm
 
 from utils.utils import get_lr
         
-def fit_one_epoch(model_train, model, yolo_loss, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, cuda):
+def fit_one_epoch(model_train, model, yolo_loss, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, cuda, save_path):
     loss        = 0
     val_loss    = 0
 
@@ -99,4 +101,7 @@ def fit_one_epoch(model_train, model, yolo_loss, loss_history, optimizer, epoch,
     loss_history.append_loss(loss / epoch_step, val_loss / epoch_step_val)
     print('Epoch:'+ str(epoch+1) + '/' + str(Epoch))
     print('Total Loss: %.3f || Val Loss: %.3f ' % (loss / epoch_step, val_loss / epoch_step_val))
-    torch.save(model.state_dict(), 'logs/ep%03d-loss%.3f-val_loss%.3f.pth' % (epoch + 1, loss / epoch_step, val_loss / epoch_step_val))
+    if val_loss < loss_history.best_val_loss:
+        loss_history.best_val_loss = val_loss
+        torch.save(model.state_dict(), os.path.join(save_path, 'yolov4-tiny-best-weights.pth'))
+    # torch.save(model.state_dict(), os.path.join(save_path,'ep%03d-loss%.3f-val_loss%.3f.pth' % (epoch + 1, loss / epoch_step, val_loss / epoch_step_val)))

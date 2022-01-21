@@ -10,22 +10,23 @@ class LossHistory():
     def __init__(self, log_dir):
         import datetime
         curr_time = datetime.datetime.now()
-        time_str = datetime.datetime.strftime(curr_time,'%Y_%m_%d_%H_%M_%S')
+        # time_str = datetime.datetime.strftime(curr_time,'%Y_%m_%d_%H_%M_%S')
         self.log_dir    = log_dir
-        self.time_str   = time_str
-        self.save_path  = os.path.join(self.log_dir, "loss_" + str(self.time_str))
+        # self.time_str   = time_str
+        self.save_path  = os.path.join(self.log_dir, "loss_his")
         self.losses     = []
         self.val_loss   = []
+        self.best_val_loss = float('inf')
         
         os.makedirs(self.save_path)
 
     def append_loss(self, loss, val_loss):
         self.losses.append(loss)
         self.val_loss.append(val_loss)
-        with open(os.path.join(self.save_path, "epoch_loss_" + str(self.time_str) + ".txt"), 'a') as f:
+        with open(os.path.join(self.save_path, "epoch_loss" + ".txt"), 'a') as f:
             f.write(str(loss))
             f.write("\n")
-        with open(os.path.join(self.save_path, "epoch_val_loss_" + str(self.time_str) + ".txt"), 'a') as f:
+        with open(os.path.join(self.save_path, "epoch_val_loss" + ".txt"), 'a') as f:
             f.write(str(val_loss))
             f.write("\n")
         self.loss_plot()
@@ -52,7 +53,7 @@ class LossHistory():
         plt.ylabel('Loss')
         plt.legend(loc="upper right")
 
-        plt.savefig(os.path.join(self.save_path, "epoch_loss_" + str(self.time_str) + ".png"))
+        plt.savefig(os.path.join(self.save_path, "epoch_loss" + ".png"))
 
         plt.cla()
         plt.close("all")

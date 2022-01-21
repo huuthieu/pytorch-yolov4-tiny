@@ -3,15 +3,27 @@
 #   整合到了一个py文件中，通过指定mode进行模式的修改。
 #-----------------------------------------------------------------------#
 import time
+import os
 
 import cv2
 import numpy as np
 from PIL import Image
+import argparse
 
 from yolo import YOLO
 
+import config
+import json
+
+
 if __name__ == "__main__":
-    yolo = YOLO()
+    with open('config/config.json','r') as f:
+        cfg = json.load(f)
+    weight_folder = os.path.join(cfg['logs'], "yolov4-tiny-best-weights.pth")
+    yolo = YOLO(model_path = weight_folder, confidence = cfg['thresh'],
+                anchors_mask = cfg['anchors_mask'], phi = cfg['phi'], 
+                input_shape = cfg['inference_input_shape'], nms_iou = cfg['nms_iou'], 
+                letterbox_image = cfg['letterbox_image'])
     #----------------------------------------------------------------------------------------------------------#
     #   mode用于指定测试的模式：
     #   'predict'表示单张图片预测，如果想对预测过程进行修改，如保存图片，截取对象等，可以先看下方详细的注释
@@ -19,7 +31,7 @@ if __name__ == "__main__":
     #   'fps'表示测试fps，使用的图片是img里面的street.jpg，详情查看下方注释。
     #   'dir_predict'表示遍历文件夹进行检测并保存。默认遍历img文件夹，保存img_out文件夹，详情查看下方注释。
     #----------------------------------------------------------------------------------------------------------#
-    mode = "predict"
+    mode = cfg['mode']
     #----------------------------------------------------------------------------------------------------------#
     #   video_path用于指定视频的路径，当video_path=0时表示检测摄像头
     #   想要检测视频，则设置如video_path = "xxx.mp4"即可，代表读取出根目录下的xxx.mp4文件。
@@ -42,8 +54,8 @@ if __name__ == "__main__":
     #   dir_save_path指定了检测完图片的保存路径
     #   dir_origin_path和dir_save_path仅在mode='dir_predict'时有效
     #-------------------------------------------------------------------------#
-    dir_origin_path = "img/"
-    dir_save_path   = "img_out/"
+    dir_origin_path = os.path.join(cfg['folder'],"images-optional")
+    dir_save_path   = os.path.join(cfg['folder'],"detection-results")
 
     if mode == "predict":
         '''
@@ -63,7 +75,8 @@ if __name__ == "__main__":
                 continue
             else:
                 r_image = yolo.detect_image(image)
-                r_image.show()
+                # r_image.show()
+                r_image.save('debug.jpg')
 
     elif mode == "video":
         capture = cv2.VideoCapture(video_path)
@@ -122,14 +135,21 @@ if __name__ == "__main__":
         from tqdm import tqdm
 
         img_names = os.listdir(dir_origin_path)
+        
+        if not os.path.exists(dir_save_path):
+            os.makedirs(dir_save_path)
+
         for img_name in tqdm(img_names):
             if img_name.lower().endswith(('.bmp', '.dib', '.png', '.jpg', '.jpeg', '.pbm', '.pgm', '.ppm', '.tif', '.tiff')):
+                
                 image_path  = os.path.join(dir_origin_path, img_name)
                 image       = Image.open(image_path)
-                r_image     = yolo.detect_image(image)
-                if not os.path.exists(dir_save_path):
-                    os.makedirs(dir_save_path)
-                r_image.save(os.path.join(dir_save_path, img_name))
+                prefix = os.path.basename(image_path).split('.')[-1]
+                save_path = os.path.join(dir_save_path,img_name.replace(prefix,'txt'))
+                yolo.save_boxes(image,save_path)
+
+                # r_image.save(os.path.join(dir_save_path, img_name))
+
                 
     else:
         raise AssertionError("Please specify the correct mode: 'predict', 'video', 'fps' or 'dir_predict'.")
