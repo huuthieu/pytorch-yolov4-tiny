@@ -103,7 +103,7 @@ class YOLO(object):
         #---------------------------------------------------#
         #   建立yolo模型，载入yolo模型的权重
         #---------------------------------------------------#
-        self.net    = YoloBody(self.anchors_mask, self.num_classes, self.phi)
+        self.net    = YoloBody(self.anchors, self.anchors_mask, self.num_classes, self.phi, True)
         device      = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.net.load_state_dict(torch.load(self.model_path, map_location=device))
         self.net    = self.net.eval()
@@ -112,7 +112,21 @@ class YOLO(object):
         if self.cuda:
             self.net = nn.DataParallel(self.net)
             self.net = self.net.cuda()
+    
+    def export_onnx(self, model_name):
+        self.net    = YoloBody(self.anchors, self.anchors_mask, self.num_classes, self.phi, True)
+        device      = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.net    = self.net.eval()
+        self.net.load_state_dict(torch.load(self.model_path, map_location=device))
+        print('{} model, anchors, and classes loaded.'.format(self.model_path))
 
+        if self.cuda:
+            self.net = self.net.cuda()
+        dummy_input = torch.randn(1, 3, 416, 416).to(device)
+        torch.onnx.export(self.net, dummy_input, model_name, 
+                            input_names = ['input'], 
+                            output_names = ['output'],
+                            opset_version=11)
     #---------------------------------------------------#
     #   检测图片
     #---------------------------------------------------#

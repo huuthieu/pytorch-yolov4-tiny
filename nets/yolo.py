@@ -6,8 +6,7 @@ from nets.attention import cbam_block, eca_block, se_block
 
 attention_block = [se_block, cbam_block, eca_block]
 
-#-------------------------------------------------#
-#   卷积块 -> 卷积 + 标准化 + 激活函数
+#-------------------------------------------------#  
 #   Conv2d + BatchNormalization + LeakyReLU
 #-------------------------------------------------#
 class BasicConv(nn.Module):
@@ -24,8 +23,7 @@ class BasicConv(nn.Module):
         x = self.activation(x)
         return x
 
-#---------------------------------------------------#
-#   卷积 + 上采样
+#---------------------------------------------------# 
 #---------------------------------------------------#
 class Upsample(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -40,20 +38,68 @@ class Upsample(nn.Module):
         x = self.upsample(x)
         return x
 
-#---------------------------------------------------#
-#   最后获得yolov4的输出
-#---------------------------------------------------#
+
 def yolo_head(filters_list, in_filters):
     m = nn.Sequential(
         BasicConv(in_filters, filters_list[0], 3),
         nn.Conv2d(filters_list[0], filters_list[1], 1),
     )
     return m
+
+#---------------------------------------------------#
+#   trt_layer for export onnx and run tensorrt
+#---------------------------------------------------#
+
+class TrtYolo(nn.Module):
+    def __init__(self, anchors, nc, input_shape):
+        super(TrtYolo, self).__init__()
+        self.anchors = torch.Tensor(anchors)
+        self.na = len(anchors)
+        self.nc = nc
+        self.no = nc + 5
+        self.nx, self.ny, self.ng = 0, 0, 0
+        self.input_shape = input_shape
+        self.training = False
+
+    def create_grids(self, ng=(13, 13), device='cpu'):
+        self.nx, self.ny = ng  # x and y grid size
+        self.ng = torch.tensor(ng, dtype=torch.float)
+
+        # build xy offsets
+        if not self.training:
+            yv, xv = torch.meshgrid([torch.arange(self.ny, device=device), torch.arange(self.nx, device=device)])
+            self.grid = torch.stack((xv, yv), 2).view((1, 1, self.ny, self.nx, 2)).float()
+
+        if self.anchor_vec.device != device:
+            self.anchor_vec = self.anchor_vec.to(device)
+            self.anchor_wh = self.anchor_wh.to(device)
+
+    def forward(self, p):
+        bs, _, ny, nx = p.shape  # bs, 255, 13, 13
+        stride_h = self.input_shape[0] / ny
+        stride_w = self.input_shape[1] / nx
+        self.anchor_vec = [(anchor_width / stride_w, anchor_height / stride_h) for anchor_width, anchor_height in self.anchors]
+        self.anchor_wh = self.anchor_vec.view(1,self.na, 1,1,2)
+        if (self.nx, self.ny) != (nx, ny):
+            self.create_grids((nx, ny), p.device)
+
+        # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, anchors, grid, grid, classes + xywh)
+        p = p.view(bs, self.na, self.no, self.ny, self.nx).permute(0, 1, 3, 4, 2).contiguous()  # prediction
+        io = p.clone()  # inference output
+        io[..., :2] = torch.sigmoid(io[..., :2]) + self.grid  # xy
+        io[..., 2:4] = torch.exp(io[..., 2:4]) * self.anchor_wh  # wh yolo method
+        _scale = torch.Tensor([nx, ny, nx, ny]).type(FloatTensor)
+        io[...,:4] /= _scale
+        # torch.sigmoid_(io[..., 4:])
+        io[...,4:5] = torch.sigmoid(io[..., 4:5])
+        return io.view(bs, -1, self.no)  # view [1, 3, 13, 13, 85] as [1, 507, 85]
+
 #---------------------------------------------------#
 #   yolo_body
 #---------------------------------------------------#
+
 class YoloBody(nn.Module):
-    def __init__(self, anchors_mask, num_classes, phi=0):
+    def __init__(self, anchors, anchors_mask, num_classes, phi=0, EXPORT_TRT = False):
         super(YoloBody, self).__init__()
         self.phi            = phi
         self.backbone       = darknet53_tiny(None)
@@ -69,11 +115,14 @@ class YoloBody(nn.Module):
             self.feat2_att      = attention_block[self.phi - 1](512)
             self.upsample_att   = attention_block[self.phi - 1](128)
 
+        self.anchors = anchors
+        self.trt_export = EXPORT_TRT
+
     def forward(self, x):
         #---------------------------------------------------#
-        #   生成CSPdarknet53_tiny的主干模型
-        #   feat1的shape为26,26,256
-        #   feat2的shape为13,13,512
+        #   CSPdarknet53_tiny backbone
+        #   feat1 shape: 26,26,256
+        #   feat2 shape: 13,13,512
         #---------------------------------------------------#
         feat1, feat2 = self.backbone(x)
         if 1 <= self.phi and self.phi <= 3:
@@ -83,8 +132,11 @@ class YoloBody(nn.Module):
         # 13,13,512 -> 13,13,256
         P5 = self.conv_for_P5(feat2)
         # 13,13,256 -> 13,13,512 -> 13,13,255
-        out0 = self.yolo_headP5(P5) 
-
+        if self.trt_export and not self.training:
+            out0 = self.yolo_headP5(P5)
+            out0 = TrtYolo(self.anchors[[3,4,5]],1,32)(out0)
+        else:
+            out0 = self.yolo_headP5(P5)
         # 13,13,256 -> 13,13,128 -> 26,26,128
         P5_Upsample = self.upsample(P5)
         # 26,26,256 + 26,26,128 -> 26,26,384
@@ -93,7 +145,10 @@ class YoloBody(nn.Module):
         P4 = torch.cat([P5_Upsample,feat1],axis=1)
 
         # 26,26,384 -> 26,26,256 -> 26,26,255
-        out1 = self.yolo_headP4(P4)
-        
-        return out0, out1
+        if self.trt_export and not self.training:
+            out1 = self.yolo_headP4(P4)
+            out1 = TrtYolo(self.anchors[[0,1,2]],1,16)(out1)
+        else:
+            out1 = self.yolo_headP4(P4)
 
+        return out0, out1
