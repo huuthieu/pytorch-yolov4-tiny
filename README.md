@@ -23,11 +23,11 @@ Run container
 docker run -it --runtime=nvidia -v $(pwd):/yolo-tiny --name yolov4-tiny nvcr.io/nvidia/tensorrt:21.07-py3
 docker exec nvcr -it yolov4-tiny bash
 ```
-Build TRT serialized file
+### Build TRT serialized file
 ```
 python3 build_engine.py -m yolo-tiny
 ```
-Inference
+### Inference
 ```
 python3 infer_trt.py
 ```
