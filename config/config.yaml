@@ -1,0 +1,5 @@
+defaults:
+  - train: default
+  - predict: default
+  - evaluate: default
+  - track: default

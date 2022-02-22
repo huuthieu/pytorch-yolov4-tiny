@@ -1,0 +1,5 @@
+thresh: 0.01
+nms_iou: 0.3
+input_shape: [416,416]
+letterbox_image: false  
+mode: predict

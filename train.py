@@ -16,6 +16,7 @@ from utils.utils_fit import fit_one_epoch
 import argparse
 import config
 import json
+import hydra
 
 '''
 训练自己的目标检测模型一定需要注意以下几点：
@@ -38,27 +39,20 @@ import json
    但是参数本身并不是绝对的，比如随着batch的增大学习率也可以增大，效果也会好一些；过深的网络不要用太大的学习率等等。
    这些都是经验上，只能靠各位同学多查询资料和自己试试了。 
 '''  
-if __name__ == "__main__":
-    #-------------------------------#
-    #   是否使用Cuda
-    #   没有GPU可以设置成False
-    #-------------------------------#
-
-    with open('config/config.json','r') as f:
-        cfg = json.load(f)
-
+@hydra.main(config_path ="./config", config_name = "config")
+def main(cfg):
     Cuda = True
     #--------------------------------------------------------#
     #   训练前一定要修改classes_path，使其对应自己的数据集
     #--------------------------------------------------------#
-    logs_path = cfg['logs']
-    classes_path    = cfg["classes_path"]
+    logs_path = cfg.train.logs
+    classes_path    = cfg.train.classes_path
     #---------------------------------------------------------------------#
     #   anchors_path代表先验框对应的txt文件，一般不修改。
     #   anchors_mask用于帮助代码找到对应的先验框，一般不修改。
     #---------------------------------------------------------------------#
-    anchors_path    = cfg["anchors_path"]
-    anchors_mask    = cfg["anchors_mask"]
+    anchors_path    = cfg.train.anchors_path
+    anchors_mask    = cfg.train.anchors_mask
     #----------------------------------------------------------------------------------------------------------------------------#
     #   权值文件的下载请看README，可以通过网盘下载。模型的 预训练权重 对不同数据集是通用的，因为特征是通用的。
     #   模型的 预训练权重 比较重要的部分是 主干特征提取网络的权值部分，用于进行特征提取。
@@ -76,11 +70,11 @@ if __name__ == "__main__":
     #   网络一般不从0开始训练，至少会使用主干部分的权值，有些论文提到可以不用预训练，主要原因是他们 数据集较大 且 调参能力优秀。
     #   如果一定要训练网络的主干部分，可以了解imagenet数据集，首先训练分类模型，分类模型的 主干部分 和该模型通用，基于此进行训练。
     #----------------------------------------------------------------------------------------------------------------------------#
-    model_path      = cfg['model_path']
+    model_path      = cfg.train.model_path
     #------------------------------------------------------#
     #   输入的shape大小，一定要是32的倍数
     #------------------------------------------------------#
-    input_shape     = cfg['input_shape']
+    input_shape     = cfg.train.input_shape
     #-------------------------------#
     #   所使用的注意力机制的类型
     #   phi = 0为不使用注意力机制
@@ -88,7 +82,7 @@ if __name__ == "__main__":
     #   phi = 2为CBAM
     #   phi = 3为ECA
     #-------------------------------#
-    phi             = cfg['phi']
+    phi             = cfg.train.phi
     #------------------------------------------------------#
     #   Yolov4的tricks应用
     #   mosaic 马赛克数据增强 True or False 
@@ -96,9 +90,9 @@ if __name__ == "__main__":
     #   Cosine_lr 余弦退火学习率 True or False
     #   label_smoothing 标签平滑 0.01以下一般 如0.01、0.005
     #------------------------------------------------------#
-    mosaic              = cfg['mosaic']
-    Cosine_lr           = cfg['cosine_lr']
-    label_smoothing     = cfg['label_smoothing']
+    mosaic              = cfg.train.mosaic
+    Cosine_lr           = cfg.train.cosine_lr
+    label_smoothing     = cfg.train.label_smoothing
 
     #----------------------------------------------------#
     #   训练分为两个阶段，分别是冻结阶段和解冻阶段。
@@ -110,33 +104,33 @@ if __name__ == "__main__":
     #   此时模型的主干被冻结了，特征提取网络不发生改变
     #   占用的显存较小，仅对网络进行微调
     #----------------------------------------------------#
-    Init_Epoch          = cfg['Init_Epoch']
-    Freeze_Epoch        = cfg['Freeze_Epoch']
-    Freeze_batch_size   = cfg['Freeze_batch_size']
-    Freeze_lr           = cfg['Freeze_lr']
+    Init_Epoch          = cfg.train.Init_Epoch
+    Freeze_Epoch        = cfg.train.Freeze_Epoch
+    Freeze_batch_size   = cfg.train.Freeze_batch_size
+    Freeze_lr           = cfg.train.Freeze_lr
     #----------------------------------------------------#
     #   解冻阶段训练参数
     #   此时模型的主干不被冻结了，特征提取网络会发生改变
     #   占用的显存较大，网络所有的参数都会发生改变
     #----------------------------------------------------#
-    UnFreeze_Epoch      = cfg['UnFreeze_Epoch']
-    Unfreeze_batch_size = cfg['Unfreeze_batch_size']
-    Unfreeze_lr         = cfg['Unfreeze_lr']
+    UnFreeze_Epoch      = cfg.train.UnFreeze_Epoch
+    Unfreeze_batch_size = cfg.train.Unfreeze_batch_size
+    Unfreeze_lr         = cfg.train.Unfreeze_lr
     #------------------------------------------------------#
     #   是否进行冻结训练，默认先冻结主干训练后解冻训练。
     #------------------------------------------------------#
-    Freeze_Train        = cfg['Freeze_Train']
+    Freeze_Train        = cfg.train.Freeze_Train
     #------------------------------------------------------#
     #   用于设置是否使用多线程读取数据
     #   开启后会加快数据读取速度，但是会占用更多内存
     #   内存较小的电脑可以设置为2或者0  
     #------------------------------------------------------#
-    num_workers         = cfg['num_workers']
+    num_workers         = cfg.train.num_workers
     #----------------------------------------------------#
     #   获得图片路径和标签
     #----------------------------------------------------#
-    train_annotation_path   = cfg['train_annotation_path']
-    val_annotation_path     = cfg['val_annotation_path']
+    train_annotation_path   = cfg.train.train_annotation_path
+    val_annotation_path     = cfg.train.val_annotation_path
 
     #----------------------------------------------------#
     #   获取classes和anchor
@@ -262,3 +256,9 @@ if __name__ == "__main__":
             fit_one_epoch(model_train, model, yolo_loss, loss_history, optimizer, epoch, 
                     epoch_step, epoch_step_val, gen, gen_val, end_epoch, Cuda, logs_path)
             lr_scheduler.step()
+
+
+
+if __name__ == "__main__":
+    main()
+    

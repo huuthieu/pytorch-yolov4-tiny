@@ -1,0 +1,6 @@
+folder: /media/aiteam/storage/AI_DATA/fire_smoke_dataset/eda/mAP/fire_smoke/input
+no-animation: true #no animation is shown
+no-pilot: true #no plot is shown.
+quiet: true #minimalistic console output
+ignore: null ## ignore a list of classes
+set-class-iou: null # set IoU for a specific class.
