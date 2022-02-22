@@ -9,5 +9,5 @@ jobs:
       - name: Install dependencies
         run: |
           pip3 install -r requirements.txt
-      - name: Execute tests
-        run: pytest
+      # - name: Execute tests
+      #   run: pytest
