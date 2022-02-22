@@ -1,0 +1,25 @@
+classes_path: model_data/custom_classes.txt
+anchors_path: model_data/yolo_anchors.txt
+anchors_mask: [[3, 4, 5], [0, 1, 2]]
+model_path: model_data/yolov4_tiny_weights_coco.pth
+input_shape: [416,416]
+inference_input_shape: [416,416]
+logs1: /weights
+logs:  /media/aiteam/storage/AI_DATA/fire_smoke_dataset/eda/mAP/test_new_label/weights/only_fire/pytorch_ver2/000
+phi: 2
+label_smoothing: 0
+mosaic:  true
+cosine_lr:  true
+letterbox_image:  false
+nms_iou:  0.3
+Init_Epoch: 0
+Freeze_Epoch: 50
+Freeze_batch_size: 64
+Freeze_lr: 1e-3
+UnFreeze_Epoch: 100
+Unfreeze_batch_size: 64
+Unfreeze_lr: 1e-4
+Freeze_Train: true
+num_workers: 4
+train_annotation_path: model_data/train.txt
+val_annotation_path: model_data/val.txt
