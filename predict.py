@@ -14,11 +14,15 @@ from yolo import YOLO
 
 import config
 import json
+from tqdm import tqdm
 
 @hydra.main(config_path="./config", config_name="config")
-def predict():
+def predict(cfg):
     weight_folder = os.path.join(cfg.train.logs, "yolov4-tiny-best-weights.pth")
-    yolo = YOLO(model_path = weight_folder, confidence = cfg.predict.thresh,
+    classes_path = hydra.utils.to_absolute_path(cfg.train.classes_path)
+    anchors_path = hydra.utils.to_absolute_path(cfg.train.anchors_path)
+    yolo = YOLO(model_path = weight_folder, classes_path = classes_path,
+                anchors_path = anchors_path, confidence = cfg.predict.thresh,
                 anchors_mask = cfg.train.anchors_mask, phi = cfg.train.phi, 
                 input_shape = cfg.predict.input_shape, nms_iou = cfg.predict.nms_iou, 
                 letterbox_image = cfg.predict.letterbox_image)
@@ -67,6 +71,7 @@ def predict():
         while True:
             img = input('Input image filename:')
             try:
+                img = hydra.utils.to_absolute_path(img)
                 image = Image.open(img)
             except:
                 print('Open Error! Try again!')
@@ -129,8 +134,6 @@ def predict():
         print(str(tact_time) + ' seconds, ' + str(1/tact_time) + 'FPS, @batch_size 1')
 
     elif mode == "dir_predict":
-        import os
-        from tqdm import tqdm
 
         img_names = os.listdir(dir_origin_path)
         

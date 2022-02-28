@@ -6,20 +6,19 @@ import argparse
 import hydra
 
 @hydra.main(config_path ="./config", config_name = "config")
-def exp_track(cfg)
+def exp_track(cfg):
     # Log a parameter (key-value pair)
     
-    result_file = 'result.txt'
+    result_file = hydra.utils.to_absolute_path('results.txt')
     with open(result_file,'r') as f:
         result = f.read().splitlines()
-
-    mAP = result[0].split('=')[0].split('%')[0]
+    mAP = result[0].split('=')[1].split('%')[0]
     mAP = float(mAP)
     #rec = result[2].split(':')[1].strip('% ')
     #rec = float(rec)
     
-    precision = float(result[2].split('=')[1].strip('% '))
-    recall = float(result[3].split('=')[1].strip('% '))
+    precision = float(result[1].split('=')[1].strip('% '))
+    recall = float(result[2].split('=')[1].strip('% '))
 
     mlflow.set_tracking_uri(cfg.track.saved_runs)
     with mlflow.start_run(mlflow.set_experiment(cfg.track.exp_name),run_name=cfg.track.name):
@@ -36,4 +35,7 @@ def exp_track(cfg)
         # Log an artifact (output file)
         artifacts = os.path.join(cfg.train.logs, 'loss_his')
         log_artifacts(artifacts)
+
+if __name__ =="__main__":
+    exp_track()
 

@@ -16,6 +16,7 @@ from utils.utils_fit import fit_one_epoch
 import argparse
 import config
 import json
+import mlflow
 import hydra
 
 '''
@@ -39,6 +40,12 @@ import hydra
    但是参数本身并不是绝对的，比如随着batch的增大学习率也可以增大，效果也会好一些；过深的网络不要用太大的学习率等等。
    这些都是经验上，只能靠各位同学多查询资料和自己试试了。 
 '''  
+
+def log_metric(train_loss, val_loss, epoch):
+    mlflow.log_metric("train_loss", train_loss, step=epoch)
+    mlflow.log_metric("val_loss", val_loss , step=epoch)
+    
+
 @hydra.main(config_path ="./config", config_name = "config")
 def main(cfg):
     Cuda = True
@@ -46,12 +53,12 @@ def main(cfg):
     #   训练前一定要修改classes_path，使其对应自己的数据集
     #--------------------------------------------------------#
     logs_path = cfg.train.logs
-    classes_path    = cfg.train.classes_path
+    classes_path    = hydra.utils.to_absolute_path(cfg.train.classes_path)
     #---------------------------------------------------------------------#
     #   anchors_path代表先验框对应的txt文件，一般不修改。
     #   anchors_mask用于帮助代码找到对应的先验框，一般不修改。
     #---------------------------------------------------------------------#
-    anchors_path    = cfg.train.anchors_path
+    anchors_path    = hydra.utils.to_absolute_path(cfg.train.anchors_path)
     anchors_mask    = cfg.train.anchors_mask
     #----------------------------------------------------------------------------------------------------------------------------#
     #   权值文件的下载请看README，可以通过网盘下载。模型的 预训练权重 对不同数据集是通用的，因为特征是通用的。
@@ -70,7 +77,7 @@ def main(cfg):
     #   网络一般不从0开始训练，至少会使用主干部分的权值，有些论文提到可以不用预训练，主要原因是他们 数据集较大 且 调参能力优秀。
     #   如果一定要训练网络的主干部分，可以了解imagenet数据集，首先训练分类模型，分类模型的 主干部分 和该模型通用，基于此进行训练。
     #----------------------------------------------------------------------------------------------------------------------------#
-    model_path      = cfg.train.model_path
+    model_path      = hydra.utils.to_absolute_path(cfg.train.model_path)
     #------------------------------------------------------#
     #   输入的shape大小，一定要是32的倍数
     #------------------------------------------------------#
@@ -129,8 +136,8 @@ def main(cfg):
     #----------------------------------------------------#
     #   获得图片路径和标签
     #----------------------------------------------------#
-    train_annotation_path   = cfg.train.train_annotation_path
-    val_annotation_path     = cfg.train.val_annotation_path
+    train_annotation_path   = hydra.utils.to_absolute_path(cfg.train.train_annotation_path)
+    val_annotation_path     = hydra.utils.to_absolute_path(cfg.train.val_annotation_path)
 
     #----------------------------------------------------#
     #   获取classes和anchor
@@ -141,7 +148,7 @@ def main(cfg):
     #------------------------------------------------------#
     #   创建yolo模型
     #------------------------------------------------------#
-    model = YoloBody(anchors_mask, num_classes, phi = phi)
+    model = YoloBody(anchors, anchors_mask, num_classes, phi = phi)
     weights_init(model)
     
     if model_path != '':
@@ -183,6 +190,10 @@ def main(cfg):
     #   UnFreeze_Epoch总训练世代
     #   提示OOM或者显存不足请调小Batch_size
     #------------------------------------------------------#
+
+    mlflow.set_tracking_uri(cfg.track.saved_runs)
+    mlflow.start_run(mlflow.set_experiment(cfg.track.exp_name),run_name=cfg.track.name)
+
     if True:
         batch_size  = Freeze_batch_size
         lr          = Freeze_lr
@@ -216,8 +227,9 @@ def main(cfg):
                 param.requires_grad = False
 
         for epoch in range(start_epoch, end_epoch):
-            fit_one_epoch(model_train, model, yolo_loss, loss_history, optimizer, epoch, 
+            train_loss, val_loss = fit_one_epoch(model_train, model, yolo_loss, loss_history, optimizer, epoch, 
                     epoch_step, epoch_step_val, gen, gen_val, end_epoch, Cuda, logs_path)
+            log_metric(train_loss, val_loss, epoch)
             lr_scheduler.step()
             
     if True:
@@ -253,11 +265,12 @@ def main(cfg):
                 param.requires_grad = True
 
         for epoch in range(start_epoch, end_epoch):
-            fit_one_epoch(model_train, model, yolo_loss, loss_history, optimizer, epoch, 
+            train_loss, val_loss = fit_one_epoch(model_train, model, yolo_loss, loss_history, optimizer, epoch, 
                     epoch_step, epoch_step_val, gen, gen_val, end_epoch, Cuda, logs_path)
+            log_metric(train_loss, val_loss, epoch)
             lr_scheduler.step()
 
-
+    mlflow.end_run()
 
 if __name__ == "__main__":
     main()
