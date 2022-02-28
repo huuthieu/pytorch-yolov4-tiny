@@ -103,7 +103,7 @@ class YOLO(object):
         #---------------------------------------------------#
         #   建立yolo模型，载入yolo模型的权重
         #---------------------------------------------------#
-        self.net    = YoloBody(self.anchors, self.anchors_mask, self.num_classes, self.phi, True)
+        self.net    = YoloBody(self.anchors, self.anchors_mask, self.num_classes, self.phi)
         device      = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.net.load_state_dict(torch.load(self.model_path, map_location=device))
         self.net    = self.net.eval()
@@ -172,7 +172,7 @@ class YOLO(object):
         #---------------------------------------------------------#
         #   设置字体与边框厚度
         #---------------------------------------------------------#
-        font        = ImageFont.truetype(font='model_data/simhei.ttf', size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
+        font        = ImageFont.truetype(font='/home/primedo/ai_server/fire_detection/yolov4-tiny-pytorch/model_data/simhei.ttf', size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
         thickness   = int(max((image.size[0] + image.size[1]) // np.mean(self.input_shape), 1))
         
         #---------------------------------------------------------#

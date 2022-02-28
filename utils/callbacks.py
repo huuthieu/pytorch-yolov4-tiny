@@ -18,6 +18,7 @@ class LossHistory():
         self.val_loss   = []
         self.best_val_loss = float('inf')
         
+        assert not os.path.exists(self.save_path), "Weight folder exist, choose another folder"
         os.makedirs(self.save_path)
 
     def append_loss(self, loss, val_loss):
