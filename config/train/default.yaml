@@ -5,7 +5,7 @@ model_path: model_data/yolov4_tiny_weights_coco.pth
 input_shape: [416,416]
 inference_input_shape: [416,416]
 logs1: /weights
-logs:  /media/aiteam/storage/AI_DATA/fire_smoke_dataset/eda/mAP/test_new_label/weights/only_fire/pytorch_ver2/000
+logs:  /media/aiteam/storage/AI_DATA/fire_smoke_dataset/eda/mAP/test_new_label/weights/person_fire/pytorch_ver2/000
 phi: 2
 label_smoothing: 0
 mosaic:  true

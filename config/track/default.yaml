@@ -1,4 +1,3 @@
-saved_runs: /media/aiteam/storage/AI_DATA/fire_smoke_dataset/eda/mAP/test_new_label/mlruns/only_fire
-name: '001'
-loss_his: /media/aiteam/storage/AI_DATA/fire_smoke_dataset/eda/mAP/test_new_label/weights/only_fire/ver2/001/loss_his
-exp_name: pytorch_ver2
+saved_runs: /media/aiteam/storage/AI_DATA/fire_smoke_dataset/eda/mAP/test_new_label/mlruns/person_fire
+name: '000'
+exp_name: pytorch_ver1
